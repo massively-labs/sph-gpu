@@ -1,0 +1,39 @@
+set shell := ["bash", "-eo", "pipefail", "-c"]
+
+image := "sph-gpu-paper"
+paper_dir := justfile_directory()
+repo_root := paper_dir / ".."
+
+default: pdf
+
+image:
+    docker build --file "{{paper_dir}}/Dockerfile" --tag "{{image}}" "{{paper_dir}}"
+
+pdf: pdf-en pdf-ja
+
+pdf-en: image
+    docker run --rm \
+        --user "$(id -u):$(id -g)" \
+        --env HOME=/tmp \
+        --volume "{{repo_root}}:/work" \
+        --workdir /work/paper \
+        "{{image}}" \
+        latexmk -pdf -interaction=nonstopmode -halt-on-error paper.tex
+
+pdf-ja: image
+    docker run --rm \
+        --user "$(id -u):$(id -g)" \
+        --env HOME=/tmp \
+        --volume "{{repo_root}}:/work" \
+        --workdir /work/paper \
+        "{{image}}" \
+        latexmk -lualatex -interaction=nonstopmode -halt-on-error paper-ja.tex
+
+clean: image
+    docker run --rm \
+        --user "$(id -u):$(id -g)" \
+        --env HOME=/tmp \
+        --volume "{{repo_root}}:/work" \
+        --workdir /work/paper \
+        "{{image}}" \
+        bash -c 'latexmk -C paper.tex && latexmk -lualatex -C paper-ja.tex'

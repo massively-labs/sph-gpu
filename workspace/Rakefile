@@ -1,0 +1,57 @@
+ROOT = File.expand_path("..", __dir__)
+Dir.chdir(ROOT)
+
+directory "workspace/dat"
+directory "workspace/plot"
+
+namespace :run do
+  desc "Run the Sod shock tube on the GPU"
+  task :shocktube => "workspace/dat" do
+    sh "cargo run --release -p shocktube -- " \
+       "--finish 0.15 --right-resolution 160 " \
+       "--out workspace/dat/shocktube.csv " \
+       "--metrics workspace/dat/shocktube.metrics"
+  end
+
+  desc "Run a small shock-tube smoke test"
+  task :smoke => "workspace/dat" do
+    sh "cargo run -p shocktube -- " \
+       "--finish 0.01 --right-resolution 32 --samples 101 " \
+       "--out workspace/dat/shocktube-smoke.csv " \
+       "--metrics workspace/dat/shocktube-smoke.metrics"
+  end
+
+  desc "Benchmark 2D density evaluation against CPU references"
+  task :performance => "workspace/dat" do
+    sh "cargo run --release -p sph-benchmark -- " \
+       "--out workspace/dat/performance.csv"
+  end
+end
+
+namespace :draw do
+  desc "Draw density and the exact Sod solution"
+  task :shocktube => "workspace/plot" do
+    sh "gnuplot workspace/draw/shocktube.gnuplot"
+  end
+
+  desc "Draw the density-evaluation performance comparison"
+  task :performance => "workspace/plot" do
+    sh "gnuplot workspace/draw/performance.gnuplot"
+  end
+end
+
+desc "Run and draw the Sod shock tube"
+task :shocktube => ["run:shocktube", "draw:shocktube"]
+
+desc "Run and draw the performance benchmark"
+task :performance => ["run:performance", "draw:performance"]
+
+desc "Run and draw the shock-tube experiment and performance benchmark"
+task :all => [:shocktube, :performance]
+
+desc "Run all Rust tests"
+task :test do
+  sh "cargo test --workspace"
+end
+
+task :default => :shocktube
